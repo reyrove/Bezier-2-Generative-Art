@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Bezier 2</title>
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/svg+xml" href="fav.svg">
+  
+  <!-- fxhash SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/fxhash@2.0.2/dist/fxhash.min.js"></script>
+  
+  <style>
+    /* --- PERFECT RESET --- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI', Roboto, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+    }
+    
+    /* --- MAIN CONTAINER --- */
+    #main-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      padding: 20px;
+      gap: 8px;
+    }
+    
+    /* --- TITLE (CENTER TOP) --- */
+    .title-bar {
+      text-align: center;
+      flex-shrink: 0;
+      padding: 2px 0;
+      width: 100%;
+    }
+    .title-bar .title {
+      font-size: 22px;
+      font-weight: 300;
+      letter-spacing: 8px;
+      color: rgba(255,255,255,0.85);
+      text-transform: uppercase;
+    }
+    .title-bar .title .accent {
+      color: #c9a84c;
+      font-weight: 400;
+    }
+    
+    /* --- CANVAS CONTAINER --- */
+    #canvas-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      min-height: 0;
+      padding: 0 10px;
+      position: relative;
+    }
+    
+    canvas {
+      display: block;
+      box-shadow: 0 0 80px rgba(0,0,0,0.9);
+      image-rendering: auto;
+      touch-action: none;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 2px;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+      background: #0a0a0a;
+    }
+    
+    /* --- SHIRT MOCKUP --- */
+    #shirt-mockup {
+      display: none;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 2px;
+      box-shadow: 0 0 80px rgba(0,0,0,0.9);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    #shirt-mockup.active {
+      display: block;
+      animation: fadeIn 0.6s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    
+    canvas.hidden {
+      display: none;
+    }
+    
+    /* --- BOTTOM BAR --- */
+    .bottom-bar {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      gap: 6px;
+      padding: 4px 0;
+    }
+    
+    /* --- CONTROLS --- */
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .controls {
+      color: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.04);
+      padding: 8px 20px;
+      border-radius: 30px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI', Roboto, Arial, sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+      border: 1px solid rgba(255,255,255,0.08);
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.3s ease;
+      letter-spacing: 0.8px;
+      touch-action: manipulation;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .controls:hover {
+      color: rgba(255,255,255,0.95);
+      border-color: rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08);
+    }
+    .controls:active {
+      transform: scale(0.95);
+    }
+    .controls .key {
+      color: rgba(255,255,255,0.5);
+      font-weight: 300;
+    }
+    .controls .sep {
+      color: rgba(255,255,255,0.15);
+      margin: 0 4px;
+    }
+    
+    /* --- SHIRT BUTTON --- */
+    .controls.shirt-btn {
+      border-color: rgba(201, 168, 76, 0.2);
+      color: rgba(201, 168, 76, 0.7);
+      letter-spacing: 1px;
+    }
+    .controls.shirt-btn:hover {
+      border-color: rgba(201, 168, 76, 0.4);
+      color: #c9a84c;
+      background: rgba(201, 168, 76, 0.06);
+    }
+    .controls.shirt-btn.active {
+      border-color: rgba(201, 168, 76, 0.5);
+      color: #c9a84c;
+      background: rgba(201, 168, 76, 0.08);
+    }
+    .controls.shirt-btn .icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+    
+    /* --- INFO ROW --- */
+    .info-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      color: rgba(255,255,255,0.3);
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      flex-wrap: wrap;
+      padding: 2px 0;
+    }
+    .info-row .info-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.02);
+    }
+    .info-row .label {
+      color: rgba(255,255,255,0.25);
+      font-weight: 300;
+    }
+    .info-row .value {
+      color: rgba(255,255,255,0.6);
+      font-weight: 400;
+    }
+    
+    /* --- DESCRIPTION --- */
+    .description {
+      display: block;
+      text-align: center;
+      color: rgba(255,255,255,0.25);
+      font-size: 8px;
+      letter-spacing: 1.2px;
+      line-height: 1.8;
+      padding: 2px 10px;
+      font-weight: 300;
+      max-width: 500px;
+      width: 100%;
+      text-transform: uppercase;
+    }
+    .description .highlight {
+      color: rgba(255,255,255,0.4);
+    }
+    .description .sep {
+      color: rgba(255,255,255,0.08);
+      margin: 0 4px;
+    }
+    
+    /* ============================================
+       RESPONSIVE
+    ============================================ */
+    
+    @media (max-width: 1024px) {
+      #main-container { padding: 16px; gap: 6px; }
+      .title-bar .title { font-size: 20px; letter-spacing: 6px; }
+      .controls { font-size: 10px; padding: 7px 16px; min-height: 34px; }
+      .info-row { font-size: 8.5px; gap: 12px; }
+      .info-row .info-item { padding: 2px 10px; }
+      .description { font-size: 7.5px; letter-spacing: 1px; }
+    }
+    
+    @media (max-width: 768px) {
+      #main-container { padding: 12px; gap: 5px; }
+      .title-bar .title { font-size: 17px; letter-spacing: 5px; }
+      #canvas-container { padding: 0 6px; }
+      .controls { font-size: 9px; padding: 6px 14px; min-height: 32px; letter-spacing: 0.6px; }
+      .controls-row { gap: 6px; }
+      .info-row { font-size: 8px; gap: 10px; }
+      .info-row .info-item { padding: 2px 8px; }
+      .description { font-size: 7px; letter-spacing: 0.8px; padding: 2px 6px; }
+      .controls.shirt-btn .icon { font-size: 12px; }
+    }
+    
+    @media (max-width: 480px) {
+      #main-container { padding: 8px; gap: 4px; }
+      .title-bar .title { font-size: 14px; letter-spacing: 4px; }
+      #canvas-container { padding: 0 4px; }
+      .controls { font-size: 8px; padding: 5px 12px; min-height: 28px; border-radius: 24px; letter-spacing: 0.4px; }
+      .controls-row { gap: 4px; }
+      .info-row { font-size: 7px; gap: 8px; }
+      .info-row .info-item { padding: 2px 6px; gap: 4px; }
+      .description { font-size: 6.5px; letter-spacing: 0.6px; padding: 2px 4px; line-height: 1.6; }
+      .controls.shirt-btn .icon { font-size: 11px; }
+    }
+    
+    @media (max-width: 380px) {
+      #main-container { padding: 6px; gap: 3px; }
+      .title-bar .title { font-size: 12px; letter-spacing: 3px; }
+      #canvas-container { padding: 0 2px; }
+      .controls { font-size: 7px; padding: 4px 10px; min-height: 26px; border-radius: 20px; }
+      .info-row { font-size: 6.5px; gap: 6px; }
+      .info-row .info-item { padding: 1px 5px; border-radius: 14px; }
+      .description { font-size: 6px; letter-spacing: 0.5px; padding: 1px 3px; }
+      .controls.shirt-btn .icon { font-size: 10px; }
+    }
+    
+    @media (orientation: landscape) and (max-height: 500px) {
+      #main-container { padding: 10px 20px; gap: 4px; flex-direction: row; flex-wrap: wrap; }
+      .title-bar { width: 100%; flex-shrink: 0; }
+      .title-bar .title { font-size: 16px; letter-spacing: 4px; }
+      #canvas-container { flex: 1; min-height: 0; height: 100%; padding: 0 8px; }
+      .bottom-bar { width: auto; max-width: 180px; flex-shrink: 0; gap: 4px; padding: 0 4px; }
+      .controls { font-size: 8px; padding: 5px 12px; min-height: 28px; letter-spacing: 0.4px; }
+      .controls-row { flex-direction: column; gap: 4px; }
+      .info-row { font-size: 7px; gap: 6px; flex-direction: column; align-items: stretch; }
+      .info-row .info-item { padding: 2px 8px; justify-content: center; }
+      .description { font-size: 6px; max-width: 160px; padding: 1px 4px; line-height: 1.4; letter-spacing: 0.5px; }
+    }
+    
+    @media (orientation: landscape) and (max-height: 380px) {
+      #main-container { padding: 6px 12px; gap: 3px; }
+      .title-bar .title { font-size: 13px; letter-spacing: 3px; }
+      #canvas-container { padding: 0 4px; }
+      .bottom-bar { max-width: 140px; gap: 3px; }
+      .controls { font-size: 7px; padding: 4px 10px; min-height: 24px; border-radius: 16px; }
+      .info-row { font-size: 6px; gap: 4px; }
+      .info-row .info-item { padding: 1px 6px; }
+      .description { font-size: 5.5px; max-width: 120px; padding: 1px 3px; }
+    }
+    
+    @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+      canvas { image-rendering: auto; }
+    }
+    
+    @supports (-webkit-touch-callout: none) {
+      .controls { min-height: 40px; }
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      .controls, canvas, #shirt-mockup { transition: none; }
+      #shirt-mockup.active { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- MAIN CONTAINER -->
+<div id="main-container">
+
+  <!-- TITLE (CENTER TOP) -->
+  <div class="title-bar">
+    <div class="title"><span class="accent">Bezier</span> 2</div>
+  </div>
+
+  <!-- CANVAS CONTAINER -->
+  <div id="canvas-container">
+    <canvas id="target"></canvas>
+    <img id="shirt-mockup" src="Bezier-2.jpg" alt="Bezier 2 on T-Shirt" />
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+
+    <!-- CONTROLS ROW -->
+    <div class="controls-row">
+      <div class="controls" id="controlsBar">
+        <span class="key">●</span> regenerate <span class="sep">—</span> <span class="key">S</span> save
+      </div>
+      <div class="controls shirt-btn" id="shirtToggle">
+        <span class="icon">◷</span> apparel
+      </div>
+    </div>
+
+    <!-- INFO ROW -->
+    <div class="info-row">
+      <div class="info-item">
+        <span class="label">seed</span>
+        <span class="value" id="seedDisplay">---</span>
+      </div>
+      <div class="info-item">
+        <span class="label">points</span>
+        <span class="value" id="pointsDisplay">---</span>
+      </div>
+      <div class="info-item">
+        <span class="label">hash</span>
+        <span class="value" id="hashDisplay">---</span>
+      </div>
+    </div>
+
+    <!-- DESCRIPTION -->
+    <div class="description">
+      <span class="highlight">bezier curves</span>
+      <span class="sep">·</span>
+      <span class="highlight">3–30 points</span>
+      <span class="sep">·</span>
+      <span class="highlight">gradient colors</span>
+      <span class="sep">·</span>
+      <span class="highlight">rotating</span>
+      <span class="sep">·</span>
+      <span class="highlight">seed-based</span>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// ============================================
+// BEZIER 2 — MINIMAL T-SHIRT EDITION
+// ============================================
+
+// --- DETERMINISTIC RANDOM GENERATOR ---
+class RandomGenerator {
+  constructor(seed) {
+    this.seed = seed;
+    this.state = seed;
+  }
+  rand() {
+    let x = this.state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    this.state = x;
+    return (x >>> 0) / 4294967296;
+  }
+}
+
+// --- STATE ---
+const ratio = 1 / 1;
+const prefix = 'Bezier 2';
+const features = {};
+let seed = Date.now() + Math.random() * 1000000;
+let rng = new RandomGenerator(seed);
+let showingShirt = false;
+let resizeTmr = null;
+let thumbnailTaken = false;
+let animationFrame = null;
+let isAnimating = true;
+
+// --- CANVAS VARIABLES ---
+let canvasSize = 600;
+let Points = [];
+let DecidedRange = [];
+let step = [];
+let coeff = [];
+let LiNewidth = 1;
+let Angle = 0;
+let Rot = 0;
+
+// --- URL PARAMS ---
+const urlSearchParams = new URLSearchParams(window.location.search);
+const urlParams = Object.fromEntries(urlSearchParams.entries());
+let forceDownloaded = false;
+
+// --- COLOR ARRAYS ---
+const backgroundColours = [
+  '#B6B6B4', '#F5F5F5', '#728FCE', '#2F539B', '#0909FF', '#045D5D', '#006A4E',
+  '#808000', '#3A5F0B', '#254117', '#004225', '#622F22', '#A0522D', '#EB5406',
+  '#FD1C03', '#660000', '#560319', '#550A35', '#583759', '#4B0150', '#2E1A47',
+  '#800080', '#342D7E', '#C11B17', '#804A00', '#665D1E', '#347C17', '#2C3539'
+];
+
+const backgroundNames = [
+  'Gray Cloud', 'WhiteSmoke', 'Light Purple Blue', 'Estoril Blue', 'Bright Blue',
+  'Dark Teal', 'Bottle Green', 'Olive', 'Green Leaves', 'Dark Forest Green',
+  'Lotus Green', 'Red Brown', 'Sienna', 'Red Gold', 'Neon Red', 'Red Blood',
+  'Dark Scarlet', 'Purple Lily', 'Plum Purple', 'Dark Purple', 'Midnight Purple',
+  'Purple', 'Blue Whale', 'Chilli Pepper', 'Dark Bronze', 'Antique Bronze',
+  'Shamrock Green', 'Gunmetal'
+];
+
+const foregroundColours = [
+  '#16E2F5', '#01F9C6', '#2E8B57', '#50C878', '#728C00', '#52D017', '#B0BF1A',
+  '#59E817', '#DAEE01', '#FFFF00', '#FFBF00', '#E9AB17', '#FF8C00', '#F67280',
+  '#FD1C03', '#810541', '#F8B88B', '#F778A1', '#F535AA', '#F433FF', '#5865F2',
+  '#B041FF', '#FBFBF9', '#FF1493', '#CA762B', '#D4A017', '#E1AD01', '#98F516'
+];
+
+const foregroundNames = [
+  'Bright Turquoise', 'Bright Teal', 'SeaGreen', 'Emerald', 'Venom Green',
+  'Pea Green', 'Acid Green', 'Nebula Green', 'Neon Yellow Green', 'Yellow',
+  'Amber', 'Bee Yellow', 'DarkOrange', 'Pastel Red', 'Neon Red', 'Purple Maroon',
+  'Pastel Orange', 'Carnation Pink', 'Neon Pink', 'Bright Neon Pink', 'Blurple',
+  'Purple Daffodil', 'Cotton', 'DeepPink', 'Pumpkin Pie', 'Orange Gold',
+  'Mustard', 'Aloe Vera Green'
+];
+
+// --- FXHASH PARAMS ---
+let definitions = [
+  {
+    id: "number_id1",
+    name: "Number of Control Points",
+    type: "number",
+    options: {
+      min: 3,
+      max: 30,
+      step: 1,
+    },
+  }
+];
+
+// --- SETUP ---
+function setup() {
+  const backgroundIndex = Math.floor(rng.rand() * backgroundColours.length);
+  const foregroundIndex1 = Math.floor(rng.rand() * foregroundColours.length);
+  const foregroundIndex2 = Math.floor(rng.rand() * foregroundColours.length);
+
+  features.backgroundColour = backgroundColours[backgroundIndex];
+  features.foregroundColour1 = foregroundColours[foregroundIndex1];
+  features.foregroundColour2 = foregroundColours[foregroundIndex2];
+
+  // Get number of points from fxhash or random
+  let numberOfPoints;
+  if (typeof $fx !== 'undefined' && $fx.getParam) {
+    numberOfPoints = $fx.getParam('number_id1');
+  } else {
+    numberOfPoints = Math.floor(rng.rand() * 27) + 3;
+  }
+  features.numberOfPoints = numberOfPoints;
+
+  // Generate points and parameters
+  Points = generateRandomPoints(numberOfPoints);
+  DecidedRange = generateRandomNumbers(numberOfPoints, canvasSize / 10, 2 * canvasSize / 5);
+  step = generateRandomNumbers(numberOfPoints, -canvasSize / 100, canvasSize / 100);
+  coeff = generateRandomBinaryVector(numberOfPoints);
+  LiNewidth = rng.rand() * canvasSize / 200 + canvasSize / 200;
+  Rot = Math.PI / Math.floor(rng.rand() * 160 + 20) * (rng.rand() < 0.5 ? -1 : 1);
+
+  const readableFeaturesObj = {};
+  readableFeaturesObj['Background Color'] = backgroundNames[backgroundIndex];
+  readableFeaturesObj['Number of Control Points'] = numberOfPoints;
+  readableFeaturesObj['Line Gradient Color 1'] = foregroundNames[foregroundIndex1];
+  readableFeaturesObj['Line Gradient Color 2'] = foregroundNames[foregroundIndex2];
+
+  if (typeof $fx !== 'undefined' && $fx.features) {
+    $fx.features(readableFeaturesObj);
+  }
+
+  // Store for UI
+  features.backgroundName = backgroundNames[backgroundIndex];
+  features.foregroundName1 = foregroundNames[foregroundIndex1];
+  features.foregroundName2 = foregroundNames[foregroundIndex2];
+
+  return readableFeaturesObj;
+}
+
+// --- HELPER FUNCTIONS ---
+function generateRandomPoints(n) {
+  if (n <= 2) {
+    console.error("Input number must be greater than 2.");
+    return [];
+  }
+
+  let points = [];
+  let angleIncrement = 2 * Math.PI / n;
+  let centerX = 0;
+  let centerY = 0;
+  let maxRadius = canvasSize / 3;
+
+  for (let i = 0; i < n; i++) {
+    let startAngle = i * angleIncrement;
+    let angle = rng.rand() * angleIncrement + startAngle;
+    let radius = rng.rand() * maxRadius;
+    let x = centerX + radius * Math.cos(angle);
+    let y = centerY + radius * Math.sin(angle);
+    let rangeOfPoint = 0;
+    points.push([x, y, angle, rangeOfPoint]);
+  }
+
+  return points;
+}
+
+function generateRandomNumbers(size, minValue, maxValue) {
+  let randomNumbers = [];
+  for (let i = 0; i < size; i++) {
+    let randomNumber = rng.rand() * (maxValue - minValue) + minValue;
+    randomNumbers.push(randomNumber);
+  }
+  return randomNumbers;
+}
+
+function generateRandomBinaryVector(size) {
+  let binaryVector = [];
+  for (let i = 0; i < size; i++) {
+    let randomValue = rng.rand() < 0.5 ? -1 : 1;
+    binaryVector.push(randomValue);
+  }
+  return binaryVector;
+}
+
+function ChangePointsLocation(Points, step, decidedRange) {
+  for (let i = 0; i < Points.length; i++) {
+    if (Points[i][3] >= decidedRange[i]) {
+      Points[i][3] = 0;
+      coeff[i] = -coeff[i];
+    }
+    if (Points[i][3] <= decidedRange[i]) {
+      Points[i][0] = Points[i][0] + coeff[i] * step[i] * Math.cos(Points[i][2]);
+      Points[i][1] = Points[i][1] + coeff[i] * step[i] * Math.sin(Points[i][2]);
+      Points[i][3] = Points[i][3] + Math.abs(step[i]);
+    }
+  }
+  return Points;
+}
+
+function drawSmoothClosedBezierCurve(ctx, points, lineWidth, startColorHex, endColorHex, w, h) {
+  if (points.length < 3) {
+    console.error("At least three points are required to draw a closed curve.");
+    return;
+  }
+
+  let startColor = startColorHex;
+  let endColor = endColorHex;
+
+  let totalSegments = (points.length + 1) * 100;
+  let midSegment = totalSegments / 2;
+
+  for (let i = 0; i < points.length; i++) {
+    let nextIndex = (i + 1) % points.length;
+    let xc1 = (points[i][0] + points[nextIndex][0]) / 2;
+    let yc1 = (points[i][1] + points[nextIndex][1]) / 2;
+
+    let prevIndex = (i - 1 + points.length) % points.length;
+    let xc0 = (points[i][0] + points[prevIndex][0]) / 2;
+    let yc0 = (points[i][1] + points[prevIndex][1]) / 2;
+
+    for (let j = 0; j < 100; j++) {
+      let t = j / 100;
+
+      let x0 = lerp(xc0, points[i][0], t);
+      let y0 = lerp(yc0, points[i][1], t);
+      let x1 = lerp(points[i][0], xc1, t);
+      let y1 = lerp(points[i][1], yc1, t);
+      let x = lerp(x0, x1, t);
+      let y = lerp(y0, y1, t);
+
+      let nextT = (j + 1) / 100;
+      let nextX0 = lerp(xc0, points[i][0], nextT);
+      let nextY0 = lerp(yc0, points[i][1], nextT);
+      let nextX1 = lerp(points[i][0], xc1, nextT);
+      let nextY1 = lerp(points[i][1], yc1, nextT);
+      let nextX = lerp(nextX0, nextX1, nextT);
+      let nextY = lerp(nextY0, nextY1, nextT);
+
+      let segmentIndex = i * 100 + j;
+      let interColor;
+      if (segmentIndex < midSegment) {
+        interColor = lerpColor(startColor, endColor, segmentIndex / midSegment);
+      } else {
+        interColor = lerpColor(endColor, startColor, (segmentIndex - midSegment) / midSegment);
+      }
+
+      ctx.strokeStyle = interColor;
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(nextX, nextY);
+      ctx.stroke();
+    }
+  }
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function lerpColor(color1, color2, t) {
+  // Parse hex colors
+  let r1 = parseInt(color1.slice(1, 3), 16);
+  let g1 = parseInt(color1.slice(3, 5), 16);
+  let b1 = parseInt(color1.slice(5, 7), 16);
+  let r2 = parseInt(color2.slice(1, 3), 16);
+  let g2 = parseInt(color2.slice(3, 5), 16);
+  let b2 = parseInt(color2.slice(5, 7), 16);
+
+  let r = Math.round(lerp(r1, r2, t));
+  let g = Math.round(lerp(g1, g2, t));
+  let b = Math.round(lerp(b1, b2, t));
+
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+// --- MAIN DRAW ---
+function drawCanvas() {
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+  }
+
+  const canvas = document.getElementById('target');
+  const ctx = canvas.getContext('2d');
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+
+  // Update canvas size reference
+  canvasSize = Math.min(w, h);
+
+  // Update angle
+  Angle = Angle + Rot;
+
+  // Clear background
+  ctx.fillStyle = features.backgroundColour || '#000000';
+  ctx.fillRect(0, 0, w, h);
+
+  // Save context and translate to center
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(Angle);
+
+  // Update points
+  Points = ChangePointsLocation(Points, step, DecidedRange);
+
+  // Draw the bezier curve with gradient
+  drawSmoothClosedBezierCurve(
+    ctx, Points, LiNewidth,
+    features.foregroundColour1,
+    features.foregroundColour2,
+    w, h
+  );
+
+  ctx.restore();
+
+  if (!thumbnailTaken) {
+    if (typeof $fx !== 'undefined' && $fx.preview) {
+      $fx.preview();
+    }
+    thumbnailTaken = true;
+  }
+
+  if ('forceDownload' in urlParams && forceDownloaded === false) {
+    forceDownloaded = true;
+    autoDownloadCanvas();
+    if (window.parent) {
+      window.parent.postMessage('forceDownloaded', '*');
+    }
+  }
+
+  // Update UI
+  updateUI();
+
+  // Continue animation
+  if (isAnimating) {
+    animationFrame = requestAnimationFrame(drawCanvas);
+  }
+}
+
+// --- UPDATE UI ---
+function updateUI() {
+  document.getElementById('seedDisplay').textContent = String(seed).slice(0, 8);
+  document.getElementById('pointsDisplay').textContent = features.numberOfPoints || '---';
+  if (typeof $fx !== 'undefined' && $fx.hash) {
+    document.getElementById('hashDisplay').textContent = $fx.hash.slice(0, 8);
+  } else {
+    document.getElementById('hashDisplay').textContent = '---';
+  }
+}
+
+// --- REGENERATE ---
+function regenerate() {
+  seed = Date.now() + Math.random() * 1000000;
+  rng = new RandomGenerator(seed);
+  thumbnailTaken = false;
+  
+  const readableFeaturesObj = setup();
+  
+  if (typeof $fx !== 'undefined' && $fx.features) {
+    $fx.features(readableFeaturesObj);
+  }
+  
+  if (showingShirt) {
+    toggleShirt();
+  }
+  
+  // Reset animation state
+  isAnimating = true;
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+  }
+  
+  layoutCanvas();
+}
+
+// --- TOGGLE SHIRT ---
+function toggleShirt() {
+  showingShirt = !showingShirt;
+  const canvas = document.getElementById('target');
+  const shirtMockup = document.getElementById('shirt-mockup');
+  const shirtToggle = document.getElementById('shirtToggle');
+  
+  if (showingShirt) {
+    canvas.classList.add('hidden');
+    shirtMockup.classList.add('active');
+    shirtToggle.classList.add('active');
+    shirtToggle.innerHTML = '<span class="icon">◷</span> artwork';
+    // Stop animation when showing shirt
+    isAnimating = false;
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+    }
+  } else {
+    canvas.classList.remove('hidden');
+    shirtMockup.classList.remove('active');
+    shirtToggle.classList.remove('active');
+    shirtToggle.innerHTML = '<span class="icon">◷</span> apparel';
+    // Resume animation
+    isAnimating = true;
+    drawCanvas();
+  }
+}
+
+// --- DOWNLOAD ---
+function autoDownloadCanvas() {
+  const canvas = document.getElementById('target');
+  const link = document.createElement('a');
+  
+  let filename = prefix + '_' + String(seed).slice(0, 8);
+  if (typeof $fx !== 'undefined' && $fx.hash) {
+    filename = prefix + '_' + $fx.hash;
+  }
+  if ('forceId' in urlParams) {
+    filename = prefix + '_' + urlParams.forceId.toString().padStart(4, '0') + '_' + (typeof $fx !== 'undefined' ? $fx.hash : String(seed).slice(0, 8));
+  }
+  
+  // For animated GIF, we need to capture multiple frames
+  // For now, save as PNG
+  link.download = filename + '.png';
+  link.href = canvas.toDataURL('image/png', 1.0);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// --- LAYOUT CANVAS ---
+function layoutCanvas() {
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+  }
+  
+  const container = document.getElementById('canvas-container');
+  const containerRect = container.getBoundingClientRect();
+  let maxWidth = containerRect.width;
+  let maxHeight = containerRect.height;
+  
+  maxWidth = Math.max(maxWidth, 80);
+  maxHeight = Math.max(maxHeight, 80);
+  
+  let cWidth = maxWidth;
+  let cHeight = cWidth / ratio;
+  
+  if (cHeight > maxHeight) {
+    cHeight = maxHeight;
+    cWidth = maxHeight * ratio;
+  }
+  
+  cWidth = Math.max(cWidth, 80);
+  cHeight = Math.max(cHeight, 80);
+  
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  
+  let targetWidth = cWidth * dpr;
+  let targetHeight = cHeight * dpr;
+  
+  if ('forceWidth' in urlParams) {
+    targetWidth = parseInt(urlParams.forceWidth);
+    targetHeight = Math.floor(targetWidth / ratio);
+    dpr = 1;
+  }
+  
+  const canvas = document.getElementById('target');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  canvas.style.width = cWidth + 'px';
+  canvas.style.height = cHeight + 'px';
+  
+  const shirtMockup = document.getElementById('shirt-mockup');
+  shirtMockup.style.width = cWidth + 'px';
+  shirtMockup.style.height = cHeight + 'px';
+  
+  // Update canvasSize for calculations
+  canvasSize = Math.min(targetWidth, targetHeight);
+  
+  // Reset animation state
+  isAnimating = true;
+  thumbnailTaken = false;
+  
+  // Setup points with new canvas size
+  const numberOfPoints = features.numberOfPoints || 5;
+  Points = generateRandomPoints(numberOfPoints);
+  DecidedRange = generateRandomNumbers(numberOfPoints, canvasSize / 10, 2 * canvasSize / 5);
+  step = generateRandomNumbers(numberOfPoints, -canvasSize / 100, canvasSize / 100);
+  coeff = generateRandomBinaryVector(numberOfPoints);
+  LiNewidth = rng.rand() * canvasSize / 200 + canvasSize / 200;
+  Rot = Math.PI / Math.floor(rng.rand() * 160 + 20) * (rng.rand() < 0.5 ? -1 : 1);
+  Angle = 0;
+  
+  drawCanvas();
+}
+
+// --- RESIZE ---
+function handleResize() {
+  clearTimeout(resizeTmr);
+  resizeTmr = setTimeout(() => {
+    layoutCanvas();
+  }, 100);
+}
+
+// --- KEYBOARD ---
+document.addEventListener('keydown', function(e) {
+  if (e.key === 's' || e.key === 'S') {
+    e.preventDefault();
+    autoDownloadCanvas();
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    e.preventDefault();
+    regenerate();
+  }
+  if (e.key === 't' || e.key === 'T') {
+    e.preventDefault();
+    toggleShirt();
+  }
+});
+
+// --- CONTROLS ---
+document.getElementById('controlsBar').addEventListener('click', regenerate);
+document.getElementById('controlsBar').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  regenerate();
+});
+
+document.getElementById('shirtToggle').addEventListener('click', toggleShirt);
+document.getElementById('shirtToggle').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  toggleShirt();
+});
+
+// --- WINDOW ---
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', function() {
+  setTimeout(handleResize, 400);
+});
+
+// --- VISIBILITY ---
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) {
+    setTimeout(() => {
+      if (!showingShirt && isAnimating) {
+        drawCanvas();
+      }
+    }, 100);
+  }
+});
+
+// --- INIT ---
+function init() {
+  // Setup initial state
+  const readableFeaturesObj = setup();
+  
+  if (typeof $fx !== 'undefined' && $fx.features) {
+    $fx.features(readableFeaturesObj);
+  }
+  
+  layoutCanvas();
+  updateUI();
+  
+  console.log('Bezier 2 — Minimal T-Shirt Edition');
+  console.log('◷ Press T to toggle apparel view');
+  console.log('Press S to save');
+  console.log('Press R to regenerate');
+}
+
+// Check for fxhash params
+if (typeof $fx !== 'undefined' && $fx.params) {
+  $fx.params(definitions);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+// Expose functions globally
+window.regenerate = regenerate;
+window.autoDownloadCanvas = autoDownloadCanvas;
+window.toggleShirt = toggleShirt;
+window.drawCanvas = drawCanvas;
+window.layoutCanvas = layoutCanvas;
+</script>
+</body>
+</html>
