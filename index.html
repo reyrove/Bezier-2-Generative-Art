@@ -12,9 +12,6 @@
   <!-- fxhash SDK -->
   <script src="https://cdn.jsdelivr.net/npm/fxhash@2.0.2/dist/fxhash.min.js"></script>
   
-  <!-- GIF.js for GIF encoding -->
-  <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script>
-  
   <style>
     /* --- PERFECT RESET --- */
     * {
@@ -125,66 +122,6 @@
     
     canvas.hidden {
       display: none;
-    }
-    
-    /* --- GIF SAVING OVERLAY --- */
-    #saving-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      flex-direction: column;
-      gap: 20px;
-    }
-    
-    #saving-overlay.active {
-      display: flex;
-    }
-    
-    #saving-overlay .spinner {
-      width: 60px;
-      height: 60px;
-      border: 4px solid rgba(201,168,76,0.1);
-      border-top: 4px solid #c9a84c;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    #saving-overlay .saving-text {
-      color: rgba(255,255,255,0.7);
-      font-size: 14px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      font-weight: 300;
-    }
-    
-    #saving-overlay .progress-bar {
-      width: 200px;
-      height: 3px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    
-    #saving-overlay .progress-bar .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: #c9a84c;
-      border-radius: 2px;
-      transition: width 0.3s ease;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
     }
     
     /* --- BOTTOM BAR --- */
@@ -430,7 +367,7 @@
     <!-- CONTROLS ROW -->
     <div class="controls-row">
       <div class="controls" id="controlsBar">
-        <span class="key">●</span> regenerate <span class="sep">—</span> <span class="key">S</span> save GIF
+        <span class="key">●</span> regenerate <span class="sep">—</span> <span class="key">S</span> save
       </div>
       <div class="controls shirt-btn" id="shirtToggle">
         <span class="icon">◷</span> apparel
@@ -463,20 +400,11 @@
       <span class="sep">·</span>
       <span class="highlight">rotating</span>
       <span class="sep">·</span>
-      <span class="highlight">save as GIF</span>
+      <span class="highlight">seed-based</span>
     </div>
 
   </div>
 
-</div>
-
-<!-- SAVING OVERLAY -->
-<div id="saving-overlay">
-  <div class="spinner"></div>
-  <div class="saving-text">Saving GIF...</div>
-  <div class="progress-bar">
-    <div class="progress-fill" id="progressFill"></div>
-  </div>
 </div>
 
 <script>
@@ -584,6 +512,7 @@ function setup() {
   features.foregroundColour1 = foregroundColours[foregroundIndex1];
   features.foregroundColour2 = foregroundColours[foregroundIndex2];
 
+  // Get number of points from fxhash or random
   let numberOfPoints;
   if (typeof $fx !== 'undefined' && $fx.getParam) {
     numberOfPoints = $fx.getParam('number_id1');
@@ -592,6 +521,7 @@ function setup() {
   }
   features.numberOfPoints = numberOfPoints;
 
+  // Generate points and parameters
   Points = generateRandomPoints(numberOfPoints);
   DecidedRange = generateRandomNumbers(numberOfPoints, canvasSize / 10, 2 * canvasSize / 5);
   step = generateRandomNumbers(numberOfPoints, -canvasSize / 100, canvasSize / 100);
@@ -609,6 +539,7 @@ function setup() {
     $fx.features(readableFeaturesObj);
   }
 
+  // Store for UI
   features.backgroundName = backgroundNames[backgroundIndex];
   features.foregroundName1 = foregroundNames[foregroundIndex1];
   features.foregroundName2 = foregroundNames[foregroundIndex2];
@@ -737,6 +668,7 @@ function lerp(a, b, t) {
 }
 
 function lerpColor(color1, color2, t) {
+  // Parse hex colors
   let r1 = parseInt(color1.slice(1, 3), 16);
   let g1 = parseInt(color1.slice(3, 5), 16);
   let b1 = parseInt(color1.slice(5, 7), 16);
@@ -751,169 +683,6 @@ function lerpColor(color1, color2, t) {
   return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
-// --- RENDER FRAME (optimized for GIF capture) ---
-function renderFrame(ctx, w, h, angle, points, step, decidedRange, coeff, lineWidth, color1, color2) {
-  // Clear background
-  ctx.fillStyle = features.backgroundColour || '#000000';
-  ctx.fillRect(0, 0, w, h);
-
-  // Save context and translate to center
-  ctx.save();
-  ctx.translate(w / 2, h / 2);
-  ctx.rotate(angle);
-
-  // Update points for this frame
-  for (let i = 0; i < points.length; i++) {
-    if (points[i][3] >= decidedRange[i]) {
-      points[i][3] = 0;
-      coeff[i] = -coeff[i];
-    }
-    if (points[i][3] <= decidedRange[i]) {
-      points[i][0] = points[i][0] + coeff[i] * step[i] * Math.cos(points[i][2]);
-      points[i][1] = points[i][1] + coeff[i] * step[i] * Math.sin(points[i][2]);
-      points[i][3] = points[i][3] + Math.abs(step[i]);
-    }
-  }
-
-  // Draw the bezier curve with gradient
-  drawSmoothClosedBezierCurve(
-    ctx, points, lineWidth, color1, color2, w, h
-  );
-
-  ctx.restore();
-}
-
-// --- SAVE AS GIF (OPTIMIZED) ---
-function saveAsGIF() {
-  const canvas = document.getElementById('target');
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-  
-  // Show saving overlay
-  const overlay = document.getElementById('saving-overlay');
-  const progressFill = document.getElementById('progressFill');
-  overlay.classList.add('active');
-  progressFill.style.width = '0%';
-  
-  // OPTIMIZED: Reduced duration and frames
-  const duration = 2; // 2 seconds instead of 3
-  const fps = 20; // 20 FPS instead of 30
-  const totalFrames = duration * fps;
-  const delay = 1000 / fps;
-  
-  // Create GIF with optimized settings
-  const gif = new GIF({
-    workers: 2,
-    quality: 15, // Lower quality = faster encoding
-    width: Math.min(w, 400), // Resize for smaller GIF
-    height: Math.min(h, 400),
-    workerURL: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
-  });
-  
-  // Save current state
-  const savedAngle = Angle;
-  const savedPoints = Points.map(p => [...p]);
-  const savedCoeff = [...coeff];
-  
-  // Temporarily stop animation
-  const wasAnimating = isAnimating;
-  isAnimating = false;
-  if (animationFrame) {
-    cancelAnimationFrame(animationFrame);
-  }
-  
-  // Use offscreen canvas for faster rendering
-  const offscreen = document.createElement('canvas');
-  offscreen.width = Math.min(w, 400);
-  offscreen.height = Math.min(h, 400);
-  const offCtx = offscreen.getContext('2d');
-  
-  // Reset points for GIF
-  let currentPoints = savedPoints.map(p => [...p]);
-  let currentCoeff = [...savedCoeff];
-  let currentAngle = savedAngle;
-  
-  // Generate frames with optimized rendering
-  for (let i = 0; i < totalFrames; i++) {
-    // Clear offscreen canvas
-    offCtx.clearRect(0, 0, offscreen.width, offscreen.height);
-    
-    // Render frame with current state
-    renderFrame(
-      offCtx, 
-      offscreen.width, 
-      offscreen.height, 
-      currentAngle, 
-      currentPoints, 
-      step, 
-      DecidedRange, 
-      currentCoeff, 
-      LiNewidth,
-      features.foregroundColour1,
-      features.foregroundColour2
-    );
-    
-    // Add to GIF
-    gif.addFrame(offCtx, { copy: true, delay: delay });
-    
-    // Update state for next frame
-    currentAngle = currentAngle + Rot;
-    for (let j = 0; j < currentPoints.length; j++) {
-      if (currentPoints[j][3] >= DecidedRange[j]) {
-        currentPoints[j][3] = 0;
-        currentCoeff[j] = -currentCoeff[j];
-      }
-      if (currentPoints[j][3] <= DecidedRange[j]) {
-        currentPoints[j][0] = currentPoints[j][0] + currentCoeff[j] * step[j] * Math.cos(currentPoints[j][2]);
-        currentPoints[j][1] = currentPoints[j][1] + currentCoeff[j] * step[j] * Math.sin(currentPoints[j][2]);
-        currentPoints[j][3] = currentPoints[j][3] + Math.abs(step[j]);
-      }
-    }
-    
-    // Update progress
-    const progress = ((i + 1) / totalFrames) * 100;
-    progressFill.style.width = progress + '%';
-  }
-  
-  // Restore state
-  Angle = savedAngle;
-  Points = savedPoints;
-  coeff = savedCoeff;
-  
-  // Render final GIF
-  gif.on('progress', function(p) {
-    const progress = p * 100;
-    progressFill.style.width = progress + '%';
-  });
-  
-  gif.on('finished', function(blob) {
-    // Hide overlay
-    overlay.classList.remove('active');
-    
-    // Download GIF
-    const link = document.createElement('a');
-    let filename = prefix + '_' + String(seed).slice(0, 8);
-    if (typeof $fx !== 'undefined' && $fx.hash) {
-      filename = prefix + '_' + $fx.hash;
-    }
-    link.download = filename + '.gif';
-    link.href = URL.createObjectURL(blob);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-    
-    // Resume animation
-    isAnimating = wasAnimating;
-    if (isAnimating && !showingShirt) {
-      drawCanvas();
-    }
-  });
-  
-  gif.render();
-}
-
 // --- MAIN DRAW ---
 function drawCanvas() {
   if (animationFrame) {
@@ -925,18 +694,25 @@ function drawCanvas() {
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
 
+  // Update canvas size reference
   canvasSize = Math.min(w, h);
+
+  // Update angle
   Angle = Angle + Rot;
 
+  // Clear background
   ctx.fillStyle = features.backgroundColour || '#000000';
   ctx.fillRect(0, 0, w, h);
 
+  // Save context and translate to center
   ctx.save();
   ctx.translate(w / 2, h / 2);
   ctx.rotate(Angle);
 
+  // Update points
   Points = ChangePointsLocation(Points, step, DecidedRange);
 
+  // Draw the bezier curve with gradient
   drawSmoothClosedBezierCurve(
     ctx, Points, LiNewidth,
     features.foregroundColour1,
@@ -955,14 +731,16 @@ function drawCanvas() {
 
   if ('forceDownload' in urlParams && forceDownloaded === false) {
     forceDownloaded = true;
-    saveAsGIF();
+    autoDownloadCanvas();
     if (window.parent) {
       window.parent.postMessage('forceDownloaded', '*');
     }
   }
 
+  // Update UI
   updateUI();
 
+  // Continue animation
   if (isAnimating) {
     animationFrame = requestAnimationFrame(drawCanvas);
   }
@@ -995,6 +773,7 @@ function regenerate() {
     toggleShirt();
   }
   
+  // Reset animation state
   isAnimating = true;
   if (animationFrame) {
     cancelAnimationFrame(animationFrame);
@@ -1015,6 +794,7 @@ function toggleShirt() {
     shirtMockup.classList.add('active');
     shirtToggle.classList.add('active');
     shirtToggle.innerHTML = '<span class="icon">◷</span> artwork';
+    // Stop animation when showing shirt
     isAnimating = false;
     if (animationFrame) {
       cancelAnimationFrame(animationFrame);
@@ -1024,13 +804,14 @@ function toggleShirt() {
     shirtMockup.classList.remove('active');
     shirtToggle.classList.remove('active');
     shirtToggle.innerHTML = '<span class="icon">◷</span> apparel';
+    // Resume animation
     isAnimating = true;
     drawCanvas();
   }
 }
 
-// --- DOWNLOAD (PNG) ---
-function downloadPNG() {
+// --- DOWNLOAD ---
+function autoDownloadCanvas() {
   const canvas = document.getElementById('target');
   const link = document.createElement('a');
   
@@ -1042,6 +823,8 @@ function downloadPNG() {
     filename = prefix + '_' + urlParams.forceId.toString().padStart(4, '0') + '_' + (typeof $fx !== 'undefined' ? $fx.hash : String(seed).slice(0, 8));
   }
   
+  // For animated GIF, we need to capture multiple frames
+  // For now, save as PNG
   link.download = filename + '.png';
   link.href = canvas.toDataURL('image/png', 1.0);
   document.body.appendChild(link);
@@ -1095,11 +878,14 @@ function layoutCanvas() {
   shirtMockup.style.width = cWidth + 'px';
   shirtMockup.style.height = cHeight + 'px';
   
+  // Update canvasSize for calculations
   canvasSize = Math.min(targetWidth, targetHeight);
   
+  // Reset animation state
   isAnimating = true;
   thumbnailTaken = false;
   
+  // Setup points with new canvas size
   const numberOfPoints = features.numberOfPoints || 5;
   Points = generateRandomPoints(numberOfPoints);
   DecidedRange = generateRandomNumbers(numberOfPoints, canvasSize / 10, 2 * canvasSize / 5);
@@ -1124,7 +910,7 @@ function handleResize() {
 document.addEventListener('keydown', function(e) {
   if (e.key === 's' || e.key === 'S') {
     e.preventDefault();
-    saveAsGIF();
+    autoDownloadCanvas();
   }
   if (e.key === 'r' || e.key === 'R') {
     e.preventDefault();
@@ -1168,6 +954,7 @@ document.addEventListener('visibilitychange', function() {
 
 // --- INIT ---
 function init() {
+  // Setup initial state
   const readableFeaturesObj = setup();
   
   if (typeof $fx !== 'undefined' && $fx.features) {
@@ -1179,10 +966,11 @@ function init() {
   
   console.log('Bezier 2 — Minimal T-Shirt Edition');
   console.log('◷ Press T to toggle apparel view');
-  console.log('Press S to save as GIF (optimized)');
+  console.log('Press S to save');
   console.log('Press R to regenerate');
 }
 
+// Check for fxhash params
 if (typeof $fx !== 'undefined' && $fx.params) {
   $fx.params(definitions);
 }
@@ -1193,9 +981,9 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// Expose functions globally
 window.regenerate = regenerate;
-window.saveAsGIF = saveAsGIF;
-window.downloadPNG = downloadPNG;
+window.autoDownloadCanvas = autoDownloadCanvas;
 window.toggleShirt = toggleShirt;
 window.drawCanvas = drawCanvas;
 window.layoutCanvas = layoutCanvas;
