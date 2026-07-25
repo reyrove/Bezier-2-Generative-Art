@@ -9,9 +9,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" type="image/svg+xml" href="fav.svg">
   
-  <!-- fxhash SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/fxhash@2.0.2/dist/fxhash.min.js"></script>
-  
   <style>
     /* --- PERFECT RESET --- */
     * {
@@ -384,10 +381,6 @@
         <span class="label">points</span>
         <span class="value" id="pointsDisplay">---</span>
       </div>
-      <div class="info-item">
-        <span class="label">hash</span>
-        <span class="value" id="hashDisplay">---</span>
-      </div>
     </div>
 
     <!-- DESCRIPTION -->
@@ -398,7 +391,7 @@
       <span class="sep">·</span>
       <span class="highlight">gradient colors</span>
       <span class="sep">·</span>
-      <span class="highlight">rotating</span>
+      <span class="highlight">slow rotating</span>
       <span class="sep">·</span>
       <span class="highlight">seed-based</span>
     </div>
@@ -409,7 +402,7 @@
 
 <script>
 // ============================================
-// BEZIER 2 — MINIMAL T-SHIRT EDITION
+// BEZIER 2 — PURE JS MINIMAL T-SHIRT EDITION (SLOWER)
 // ============================================
 
 // --- DETERMINISTIC RANDOM GENERATOR ---
@@ -488,20 +481,6 @@ const foregroundNames = [
   'Mustard', 'Aloe Vera Green'
 ];
 
-// --- FXHASH PARAMS ---
-let definitions = [
-  {
-    id: "number_id1",
-    name: "Number of Control Points",
-    type: "number",
-    options: {
-      min: 3,
-      max: 30,
-      step: 1,
-    },
-  }
-];
-
 // --- SETUP ---
 function setup() {
   const backgroundIndex = Math.floor(rng.rand() * backgroundColours.length);
@@ -512,39 +491,24 @@ function setup() {
   features.foregroundColour1 = foregroundColours[foregroundIndex1];
   features.foregroundColour2 = foregroundColours[foregroundIndex2];
 
-  // Get number of points from fxhash or random
-  let numberOfPoints;
-  if (typeof $fx !== 'undefined' && $fx.getParam) {
-    numberOfPoints = $fx.getParam('number_id1');
-  } else {
-    numberOfPoints = Math.floor(rng.rand() * 27) + 3;
-  }
-  features.numberOfPoints = numberOfPoints;
+  features.numberOfPoints = Math.floor(rng.rand() * 27) + 3;
 
   // Generate points and parameters
-  Points = generateRandomPoints(numberOfPoints);
-  DecidedRange = generateRandomNumbers(numberOfPoints, canvasSize / 10, 2 * canvasSize / 5);
-  step = generateRandomNumbers(numberOfPoints, -canvasSize / 100, canvasSize / 100);
-  coeff = generateRandomBinaryVector(numberOfPoints);
+  Points = generateRandomPoints(features.numberOfPoints);
+  DecidedRange = generateRandomNumbers(features.numberOfPoints, canvasSize / 10, 2 * canvasSize / 5);
+  step = generateRandomNumbers(features.numberOfPoints, -canvasSize / 100, canvasSize / 100);
+  coeff = generateRandomBinaryVector(features.numberOfPoints);
   LiNewidth = rng.rand() * canvasSize / 200 + canvasSize / 200;
-  Rot = Math.PI / Math.floor(rng.rand() * 160 + 20) * (rng.rand() < 0.5 ? -1 : 1);
-
-  const readableFeaturesObj = {};
-  readableFeaturesObj['Background Color'] = backgroundNames[backgroundIndex];
-  readableFeaturesObj['Number of Control Points'] = numberOfPoints;
-  readableFeaturesObj['Line Gradient Color 1'] = foregroundNames[foregroundIndex1];
-  readableFeaturesObj['Line Gradient Color 2'] = foregroundNames[foregroundIndex2];
-
-  if (typeof $fx !== 'undefined' && $fx.features) {
-    $fx.features(readableFeaturesObj);
-  }
+  
+  // --- SLOWER ROTATION: Reduced speed by 5x ---
+  // Original: Math.PI / Math.floor(rng.rand() * 160 + 20)
+  // New: Math.PI / Math.floor(rng.rand() * 800 + 100) - much slower
+  Rot = Math.PI / Math.floor(rng.rand() * 800 + 100) * (rng.rand() < 0.5 ? -1 : 1);
 
   // Store for UI
   features.backgroundName = backgroundNames[backgroundIndex];
   features.foregroundName1 = foregroundNames[foregroundIndex1];
   features.foregroundName2 = foregroundNames[foregroundIndex2];
-
-  return readableFeaturesObj;
 }
 
 // --- HELPER FUNCTIONS ---
@@ -668,7 +632,6 @@ function lerp(a, b, t) {
 }
 
 function lerpColor(color1, color2, t) {
-  // Parse hex colors
   let r1 = parseInt(color1.slice(1, 3), 16);
   let g1 = parseInt(color1.slice(3, 5), 16);
   let b1 = parseInt(color1.slice(5, 7), 16);
@@ -691,28 +654,21 @@ function drawCanvas() {
 
   const canvas = document.getElementById('target');
   const ctx = canvas.getContext('2d');
-  const w = ctx.canvas.width;
-  const h = ctx.canvas.height;
+  const w = canvas.width;
+  const h = canvas.height;
 
-  // Update canvas size reference
   canvasSize = Math.min(w, h);
-
-  // Update angle
   Angle = Angle + Rot;
 
-  // Clear background
   ctx.fillStyle = features.backgroundColour || '#000000';
   ctx.fillRect(0, 0, w, h);
 
-  // Save context and translate to center
   ctx.save();
   ctx.translate(w / 2, h / 2);
   ctx.rotate(Angle);
 
-  // Update points
   Points = ChangePointsLocation(Points, step, DecidedRange);
 
-  // Draw the bezier curve with gradient
   drawSmoothClosedBezierCurve(
     ctx, Points, LiNewidth,
     features.foregroundColour1,
@@ -722,13 +678,6 @@ function drawCanvas() {
 
   ctx.restore();
 
-  if (!thumbnailTaken) {
-    if (typeof $fx !== 'undefined' && $fx.preview) {
-      $fx.preview();
-    }
-    thumbnailTaken = true;
-  }
-
   if ('forceDownload' in urlParams && forceDownloaded === false) {
     forceDownloaded = true;
     autoDownloadCanvas();
@@ -737,10 +686,8 @@ function drawCanvas() {
     }
   }
 
-  // Update UI
   updateUI();
 
-  // Continue animation
   if (isAnimating) {
     animationFrame = requestAnimationFrame(drawCanvas);
   }
@@ -750,11 +697,6 @@ function drawCanvas() {
 function updateUI() {
   document.getElementById('seedDisplay').textContent = String(seed).slice(0, 8);
   document.getElementById('pointsDisplay').textContent = features.numberOfPoints || '---';
-  if (typeof $fx !== 'undefined' && $fx.hash) {
-    document.getElementById('hashDisplay').textContent = $fx.hash.slice(0, 8);
-  } else {
-    document.getElementById('hashDisplay').textContent = '---';
-  }
 }
 
 // --- REGENERATE ---
@@ -763,17 +705,12 @@ function regenerate() {
   rng = new RandomGenerator(seed);
   thumbnailTaken = false;
   
-  const readableFeaturesObj = setup();
-  
-  if (typeof $fx !== 'undefined' && $fx.features) {
-    $fx.features(readableFeaturesObj);
-  }
+  setup();
   
   if (showingShirt) {
     toggleShirt();
   }
   
-  // Reset animation state
   isAnimating = true;
   if (animationFrame) {
     cancelAnimationFrame(animationFrame);
@@ -794,7 +731,6 @@ function toggleShirt() {
     shirtMockup.classList.add('active');
     shirtToggle.classList.add('active');
     shirtToggle.innerHTML = '<span class="icon">◷</span> artwork';
-    // Stop animation when showing shirt
     isAnimating = false;
     if (animationFrame) {
       cancelAnimationFrame(animationFrame);
@@ -804,7 +740,6 @@ function toggleShirt() {
     shirtMockup.classList.remove('active');
     shirtToggle.classList.remove('active');
     shirtToggle.innerHTML = '<span class="icon">◷</span> apparel';
-    // Resume animation
     isAnimating = true;
     drawCanvas();
   }
@@ -815,21 +750,15 @@ function autoDownloadCanvas() {
   const canvas = document.getElementById('target');
   const link = document.createElement('a');
   
-  let filename = prefix + '_' + String(seed).slice(0, 8);
-  if (typeof $fx !== 'undefined' && $fx.hash) {
-    filename = prefix + '_' + $fx.hash;
-  }
-  if ('forceId' in urlParams) {
-    filename = prefix + '_' + urlParams.forceId.toString().padStart(4, '0') + '_' + (typeof $fx !== 'undefined' ? $fx.hash : String(seed).slice(0, 8));
-  }
+  const seedStr = String(seed).slice(0, 8);
+  link.download = prefix + '_Seed' + seedStr + '.png';
   
-  // For animated GIF, we need to capture multiple frames
-  // For now, save as PNG
-  link.download = filename + '.png';
-  link.href = canvas.toDataURL('image/png', 1.0);
-  document.body.appendChild(link);
+  if (showingShirt) {
+    link.href = document.getElementById('shirt-mockup').src;
+  } else {
+    link.href = canvas.toDataURL('image/png', 1.0);
+  }
   link.click();
-  document.body.removeChild(link);
 }
 
 // --- LAYOUT CANVAS ---
@@ -878,23 +807,12 @@ function layoutCanvas() {
   shirtMockup.style.width = cWidth + 'px';
   shirtMockup.style.height = cHeight + 'px';
   
-  // Update canvasSize for calculations
   canvasSize = Math.min(targetWidth, targetHeight);
   
-  // Reset animation state
   isAnimating = true;
   thumbnailTaken = false;
   
-  // Setup points with new canvas size
-  const numberOfPoints = features.numberOfPoints || 5;
-  Points = generateRandomPoints(numberOfPoints);
-  DecidedRange = generateRandomNumbers(numberOfPoints, canvasSize / 10, 2 * canvasSize / 5);
-  step = generateRandomNumbers(numberOfPoints, -canvasSize / 100, canvasSize / 100);
-  coeff = generateRandomBinaryVector(numberOfPoints);
-  LiNewidth = rng.rand() * canvasSize / 200 + canvasSize / 200;
-  Rot = Math.PI / Math.floor(rng.rand() * 160 + 20) * (rng.rand() < 0.5 ? -1 : 1);
-  Angle = 0;
-  
+  setup();
   drawCanvas();
 }
 
@@ -954,25 +872,14 @@ document.addEventListener('visibilitychange', function() {
 
 // --- INIT ---
 function init() {
-  // Setup initial state
-  const readableFeaturesObj = setup();
-  
-  if (typeof $fx !== 'undefined' && $fx.features) {
-    $fx.features(readableFeaturesObj);
-  }
-  
+  setup();
   layoutCanvas();
   updateUI();
   
-  console.log('Bezier 2 — Minimal T-Shirt Edition');
+  console.log('Bezier 2 — Pure JS Minimal T-Shirt Edition (Slower)');
   console.log('◷ Press T to toggle apparel view');
   console.log('Press S to save');
   console.log('Press R to regenerate');
-}
-
-// Check for fxhash params
-if (typeof $fx !== 'undefined' && $fx.params) {
-  $fx.params(definitions);
 }
 
 if (document.readyState === 'loading') {
